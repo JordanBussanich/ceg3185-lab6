@@ -7,7 +7,10 @@
 package hdlcchat;
 
 import java.io.*;
+import java.lang.Runnable;
+import java.lang.Thread;
 import java.net.*;
+import java.util.ArrayList;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -15,7 +18,7 @@ import java.util.logging.Logger;
  *
  * @author nbury059
  */
-public class Primary extends Station{
+public class Primary {
     Secondary B;
     Secondary C;
     ServerSocket conn;
@@ -36,37 +39,63 @@ public class Primary extends Station{
 	 * connection is initiated.
 	 */
         boolean ReadyToStop;
-    Primary(){
-         
-            try  {
+
+    class Handler implements Runnable{
+        int port;
+        Socket client;
+        BufferedReader in = null;
+        PrintWriter out = null;
+
+        public Handler(int port, Socket s) {
+            this.port = port;
+            this.client = s;
+        }
+
+        public void run() {
+            out = new PrintWriter(client.getOutputStream());
+            in = new BufferedReader(new InputStreamReader(client.getInputStream()));
+        }
+    }
+
+    Primary() {
+        boolean running = true;
+        while(running) {
+            ServerSocket conn = null;
+            Socket client = null;
+            try {
                 conn = new ServerSocket(PORT);
                 client = conn.accept();
-                out = new PrintWriter(client.getOutputStream());
-                in = new BufferedReader(new InputStreamReader(client.getInputStream()));
+                Thread t = new Thread(Handler(PORT, client));
+                t.start();
+                t.
+
                 this.output = (ObjectOutputStream) client.getOutputStream();
             } catch (UnknownHostException e) {
                 e.printStackTrace();
             } catch (IOException e) {
                 e.printStackTrace();
             }
+        }
 
-            // Listen for a request to send
-            boolean receivedRTS = false;
-            System.out.println("Waiting for request to send.");
-            while (!receivedRTS) {
-                    String rtsResponse = "";
-                    try {
-                            rtsResponse = in.readLine();
-                    } catch (IOException e) {
-                            e.printStackTrace();
-                    }
-                    if (rtsResponse != null) {
-                            if (rtsResponse.equals("RTS")) {
-                                    receivedRTS = true;
-                                    System.out.println("Request received, sending clear to send.");
-                            }
-                    }
+
+
+        // Listen for a request to send
+        boolean receivedRTS = false;
+        System.out.println("Waiting for request to send.");
+        while (!receivedRTS) {
+            String rtsResponse = "";
+            try {
+                rtsResponse = in.readLine();
+            } catch (IOException e) {
+                e.printStackTrace();
             }
+            if (rtsResponse != null) {
+                if (rtsResponse.equals("RTS")) {
+                    receivedRTS = true;
+                    System.out.println("Request received, sending clear to send.");
+                }
+            }
+        }
 
         try {
             // Send CTS to the client then wait for data
@@ -75,34 +104,34 @@ public class Primary extends Station{
             ex.printStackTrace();
         }
         out.flush();
-		
-		boolean gotData = false;
-		String raw = "";
+
+        boolean gotData = false;
+        String raw = "";
         String data = "";
-		System.out.println("Waiting for data.");
-		while (!gotData) {
-			try {
+        System.out.println("Waiting for data.");
+        while (!gotData) {
+            try {
                 raw = in.readLine();
                 if (raw.equals("END")) {
                     break;
                 } else {
                     data = raw;
                 }
-			} catch (IOException e) {
+            } catch (IOException e) {
                 e.printStackTrace();
                 break;
-			}
+            }
 
             /*
 			if (!raw.isEmpty()) {
 				gotData = true;
 			}*/
-		}
+        }
 
         try {
             conn.close();
         } catch (IOException e) {
             e.printStackTrace();
         }
-	}
     }
+}

@@ -41,4 +41,8 @@ public class Station {
         SMTPClient = new Socket();
        
     }
+
+    public void connect(String host, int port) {
+
+    }
 }
