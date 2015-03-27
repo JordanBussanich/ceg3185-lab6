@@ -7,9 +7,13 @@
 package hdlcchat;
 
 import java.io.*;
+import java.io.PrintWriter;
 import java.lang.Runnable;
+import java.lang.System;
 import java.lang.Thread;
 import java.net.*;
+import java.net.ServerSocket;
+import java.net.Socket;
 import java.util.ArrayList;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -19,19 +23,29 @@ import java.util.logging.Logger;
  * @author nbury059
  */
 public class Primary {
+
+    public final String B_ADDRESS = "01010101";
+    public final String C_ADDRESS = "10101010";
+
+    public final String FLAG = "01111110";
+
+    public final String SNRM_FIRST_4 = "1100";
+    public final String SNRM_LAST_3 = "001";
+
+    public final String UA_FIRST_4 = "1100";
+    public final String UA_LAST_3 = "110";
+
+    /*
     Secondary B;
     Secondary C;
-    ServerSocket conn;
+    ServerSocket conn; */
      /**
 	 * Stream used to read from the client.
 	 */
-	
-    PrintWriter out;
-    public final static int PORT = 13131;
-    static int portB = 10101;
-    static int portC = 12321;
+    public final static int PORT = 10000;
+    public final int PORT_B = 10101;
+    public final int PORT_C = 11111;
     public final static String HOST = "localhost";
-    boolean received_RR_F_From_B = false;
    
 
 	/**
@@ -41,10 +55,14 @@ public class Primary {
         boolean ReadyToStop;
 
     class Handler implements Runnable{
+        List<Socket> connectedClients = new ArrayList<Socket>();    // This holds the connections of all the clients
+
         int port;
         Socket client;
-        BufferedReader in = null;
-        PrintWriter out = null;
+        BufferedReader bIn = null;
+        BufferedReader cIn = null;
+        PrintWriter bOut = null;
+        PrintWriter cOut = null;
 
         public Handler(int port, Socket s) {
             this.port = port;
@@ -52,8 +70,94 @@ public class Primary {
         }
 
         public void run() {
-            out = new PrintWriter(client.getOutputStream());
-            in = new BufferedReader(new InputStreamReader(client.getInputStream()));
+            ServerSocket connB = null;
+            ServerSocket connC = null;
+            bOut = new PrintWriter(client.getOutputStream());
+            bIn = new BufferedReader(new InputStreamReader(client.getInputStream()));
+
+            // Initialise B
+            try {
+                System.out.println("Waiting for B to connect...");
+                connB = new ServerSocket(PORT);
+                Socket clientB = connB.accept();
+                connectedClients.add(clientB);
+                bOut = new PrintWriter(clientB.getOutputStream());
+                bIn = new BufferedReader(new InputStreamReader(clientB.getInputStream()));
+            } catch (UnknownHostException e) {
+                e.printStackTrace();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            System.out.println("Successfully connected to B!");
+
+            // Initialise C
+            try {
+                System.out.println("Waiting for C to connect...");
+                connC = new ServerSocket(PORT);
+                Socket clientC = connC.accept();
+                connectedClients.add(clientC);
+                cOut = new PrintWriter(clientC.getOutputStream());
+                cIn = new BufferedReader(new InputStreamReader(clientC.getInputStream()));
+            } catch (UnknownHostException e) {
+                e.printStackTrace();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            System.out.println("Successfully connected to C!");
+
+            // B and C are now connected, send SNRM to B
+            String bSnrm = FLAG + B_ADDRESS + SNRM_FIRST_4 + "1" + SNRM_LAST_3 + FLAG;
+
+            bOut.println(bSnrm);
+            bOut.flush();
+
+            System.out.println("Sent SNRM to B");
+
+            // Wait for UA from B
+            boolean gotBUA = false;
+            final String bUA = FLAG + B_ADDRESS + UA_FIRST_4 + "1" + UA_LAST_3 + FLAG;
+
+            while(!gotBUA) {
+                String message = "";
+                try {
+                    message = bIn.readLine();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+
+                if (message != null)
+                    if (message.equals(bUA))
+                        gotBUA = true;
+            }
+
+            System.out.println("Received UA from B");
+
+            // Send SNRM to C
+            String cSnrm = FLAG + C_ADDRESS + SNRM_FIRST_4 + "1" + SNRM_LAST_3 + FLAG;
+
+            cOut.println(cSnrm);
+            cOut.flush();
+
+            System.out.println("Sent SNRM to C");
+
+            // Wait for UA from C
+            boolean gotCUA = false;
+            final String cUA = FLAG + C_ADDRESS + UA_FIRST_4 + "1" + UA_LAST_3 + FLAG;
+
+            while(!gotCUA) {
+                String message = "";
+                try {
+                    message = cIn.readLine();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+
+                if (message != null)
+                    if (message.equals(cUA))
+                        gotCUA = true;
+            }
+
+            System.out.println("Received UA from C");
         }
     }
 
@@ -67,8 +171,6 @@ public class Primary {
                 client = conn.accept();
                 Thread t = new Thread(Handler(PORT, client));
                 t.start();
-                t.
-
                 this.output = (ObjectOutputStream) client.getOutputStream();
             } catch (UnknownHostException e) {
                 e.printStackTrace();
