@@ -134,7 +134,7 @@ public class Primary {
         // Return true to GOTO P2, false for GOTO P5
 
         // Send RR,*,P to B
-        String rr = FLAG + B_ADDRESS + RR_FIRST_4 + "1" + Integer.toBinaryString(bLastReceived);
+        String rr = FLAG + B_ADDRESS + RR_FIRST_4 + "1" + Integer.toBinaryString(bLastReceived) + FLAG;
         bOut.println(rr);
         bOut.flush();
 
@@ -165,7 +165,7 @@ public class Primary {
         // Return true to GOTO P3, false for GOTO P6
 
         // Send RR,*,P to C
-        String rr = FLAG + C_ADDRESS + RR_FIRST_4 + "1" + Integer.toBinaryString(bLastReceived);
+        String rr = FLAG + C_ADDRESS + RR_FIRST_4 + "1" + Integer.toBinaryString(bLastReceived) + FLAG;
         cOut.println(rr);
         cOut.flush();
 
