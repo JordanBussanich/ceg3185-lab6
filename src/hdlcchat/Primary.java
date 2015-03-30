@@ -61,7 +61,7 @@ public class Primary {
 
     List<Socket> connectedClients = new ArrayList<Socket>();    // This holds the connections of all the clients
 
-    int port;
+    int port = PORT;
     BufferedReader bIn = null;
     BufferedReader cIn = null;
     PrintWriter bOut = null;
