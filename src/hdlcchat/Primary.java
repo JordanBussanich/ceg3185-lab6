@@ -229,6 +229,8 @@ public class Primary {
                         String msg = s.substring(24, s.length() - 8);
                         System.out.println("Message received from B:");
                         System.out.println(msg);
+                        bLastReceived++;
+                        if (bLastReceived > 7) { bLastReceived = 0; }
                     }
                 }
             }
@@ -244,6 +246,7 @@ public class Primary {
                         String msg = s.substring(24, s.length() - 8);
                         System.out.println("Message received from C:");
                         System.out.println(msg);
+                        if (cLastReceived > 7) { cLastReceived = 0; }
                     }
                 }
             }
