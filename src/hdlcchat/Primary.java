@@ -6,17 +6,15 @@
 
 package hdlcchat;
 
-import java.io.*;
 import java.io.PrintWriter;
+import java.lang.Integer;
 import java.lang.Runnable;
 import java.lang.System;
 import java.lang.Thread;
-import java.net.*;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import java.util.LinkedList;
 
 /**
  *
@@ -24,6 +22,7 @@ import java.util.logging.Logger;
  */
 public class Primary {
 
+    public final String A_ADDRESS = "11001100";
     public final String B_ADDRESS = "01010101";
     public final String C_ADDRESS = "10101010";
 
@@ -34,6 +33,8 @@ public class Primary {
 
     public final String UA_FIRST_4 = "1100";
     public final String UA_LAST_3 = "110";
+
+    public final String RR_FIRST_4 = "1000";
 
     /*
     Secondary B;
@@ -64,47 +65,19 @@ public class Primary {
         PrintWriter bOut = null;
         PrintWriter cOut = null;
 
+        List<String> inbox = new LinkedList<String>();
+        List<String> outbox = new LinkedList<String>();
+
+        int bLastReceived = 0;
+        int cLastReceived = 0;
+        int cLastSent = 0;
+
         public Handler(int port, Socket s) {
             this.port = port;
             this.client = s;
         }
 
-        public void run() {
-            ServerSocket connB = null;
-            ServerSocket connC = null;
-            bOut = new PrintWriter(client.getOutputStream());
-            bIn = new BufferedReader(new InputStreamReader(client.getInputStream()));
-
-            // Initialise B
-            try {
-                System.out.println("Waiting for B to connect...");
-                connB = new ServerSocket(PORT);
-                Socket clientB = connB.accept();
-                connectedClients.add(clientB);
-                bOut = new PrintWriter(clientB.getOutputStream());
-                bIn = new BufferedReader(new InputStreamReader(clientB.getInputStream()));
-            } catch (UnknownHostException e) {
-                e.printStackTrace();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-            System.out.println("Successfully connected to B!");
-
-            // Initialise C
-            try {
-                System.out.println("Waiting for C to connect...");
-                connC = new ServerSocket(PORT);
-                Socket clientC = connC.accept();
-                connectedClients.add(clientC);
-                cOut = new PrintWriter(clientC.getOutputStream());
-                cIn = new BufferedReader(new InputStreamReader(clientC.getInputStream()));
-            } catch (UnknownHostException e) {
-                e.printStackTrace();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-            System.out.println("Successfully connected to C!");
-
+        private void P0() {
             // B and C are now connected, send SNRM to B
             String bSnrm = FLAG + B_ADDRESS + SNRM_FIRST_4 + "1" + SNRM_LAST_3 + FLAG;
 
@@ -158,6 +131,183 @@ public class Primary {
             }
 
             System.out.println("Received UA from C");
+        }
+
+        private boolean P1() {
+            // Return true to GOTO P2, false for GOTO P5
+
+            // Send RR,*,P to B
+            String rr = FLAG + B_ADDRESS + RR_FIRST_4 + "1" + Integer.toBinaryString(bLastReceived);
+            bOut.println(rr);
+            bOut.flush();
+
+            System.out.println("RR,*,P sent to B");
+
+            boolean gotResponse = false;
+            final String bNoData = FLAG + B_ADDRESS + RR_FIRST_4 + "1";
+
+            boolean gotData = false;
+            while (!gotData) {
+                String message = "";
+                try {
+                    message = bIn.readLine();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+
+                if (message.startsWith(bNoData)) {
+                    inbox.add(message);
+                    return true;
+                } else {
+                    return false;
+                }
+            }
+        }
+
+        private boolean P2() {
+            // Return true to GOTO P3, false for GOTO P6
+
+            // Send RR,*,P to C
+            String rr = FLAG + C_ADDRESS + RR_FIRST_4 + "1" + Integer.toBinaryString(bLastReceived);
+            cOut.println(rr);
+            cOut.flush();
+
+            System.out.println("RR,*,P sent to C");
+
+            boolean gotResponse = false;
+            final String cNoData = FLAG + C_ADDRESS + RR_FIRST_4 + "1";
+
+            boolean gotData = false;
+            while (!gotData) {
+                String message = "";
+                try {
+                    message = cIn.readLine();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+
+                if (message.startsWith(cNoData)) {
+                    inbox.add(message);
+                    return true;
+                } else {
+                    return false;
+                }
+            }
+        }
+
+        private void P3() {
+            if (!outbox.isEmpty()) {
+                for (String s : outbox) {
+                    if s.startsWith(FLAG + B_ADDRESS) {
+                        bOut.println(s);
+                        bOut.flush();
+                        System.out.println("Frame sent to B");
+                    }
+                }
+            }
+        }
+
+        private void P4() {
+            if (!outbox.isEmpty()) {
+                for (String s : outbox) {
+                    if s.startsWith(FLAG + C_ADDRESS) {
+                        cOut.println(s);
+                        cOut.flush();
+                        System.out.println("Frame sent to C");
+                    }
+                }
+            }
+        }
+
+        private void P5() {
+            if (!inbox.isEmpty()) {
+                for (String s : inbox) {
+                    if (s.startsWith(FLAG + C_ADDRESS)) {
+                        outbox.add(s);
+                        inbox.remove(s);
+                    } else if (s.startsWith(FLAG + A_ADDRESS)) {
+                        String msg = s.substring(24, s.length() - 8);
+                        System.out.println("Message received from B:");
+                        System.out.println(msg);
+                    }
+                }
+            }
+        }
+
+        private void P6() {
+            if (!inbox.isEmpty()) {
+                for (String s : inbox) {
+                    if (s.startsWith(FLAG + B_ADDRESS)) {
+                        outbox.add(s);
+                        inbox.remove(s);
+                    } else if (s.startsWith(FLAG + A_ADDRESS)) {
+                        String msg = s.substring(24, s.length() - 8);
+                        System.out.println("Message received from C:");
+                        System.out.println(msg);
+                    }
+                }
+            }
+        }
+
+        public void run() {
+            ServerSocket connB = null;
+            ServerSocket connC = null;
+            bOut = new PrintWriter(client.getOutputStream());
+            bIn = new BufferedReader(new InputStreamReader(client.getInputStream()));
+
+            // Initialise B
+            try {
+                System.out.println("Waiting for B to connect...");
+                connB = new ServerSocket(PORT);
+                Socket clientB = connB.accept();
+                connectedClients.add(clientB);
+                bOut = new PrintWriter(clientB.getOutputStream());
+                bIn = new BufferedReader(new InputStreamReader(clientB.getInputStream()));
+            } catch (UnknownHostException e) {
+                e.printStackTrace();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            System.out.println("Successfully connected to B!");
+
+            // Initialise C
+            try {
+                System.out.println("Waiting for C to connect...");
+                connC = new ServerSocket(PORT);
+                Socket clientC = connC.accept();
+                connectedClients.add(clientC);
+                cOut = new PrintWriter(clientC.getOutputStream());
+                cIn = new BufferedReader(new InputStreamReader(clientC.getInputStream()));
+            } catch (UnknownHostException e) {
+                e.printStackTrace();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            System.out.println("Successfully connected to C!");
+
+            while (true) {
+                P0();
+                if (P1()) {
+                    if (P2()) {
+                        P3();
+                        P4();
+                    } else {
+                        P6();
+                        P3();
+                        P4();
+                    }
+                } else {
+                    P5();
+                    if (P2()) {
+                        P3();
+                        P4();
+                    } else {
+                        P6();
+                        P3();
+                        P4();
+                    }
+                }
+            }
         }
     }
 
