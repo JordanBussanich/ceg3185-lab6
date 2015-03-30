@@ -252,8 +252,8 @@ public class Primary {
     public void start() {
         ServerSocket connB = null;
         ServerSocket connC = null;
-        bOut = new PrintWriter(client.getOutputStream());
-        bIn = new BufferedReader(new InputStreamReader(client.getInputStream()));
+        bOut = null;
+        bIn = null;
 
         // Initialise B
         try {
